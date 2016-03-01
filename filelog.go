@@ -5,6 +5,8 @@ package log4go
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -30,6 +32,9 @@ type FileLogWriter struct {
 	// Rotate at size
 	maxsize         int
 	maxsize_cursize int
+
+	// Max days for log file storage
+	maxdays int
 
 	// Rotate daily
 	daily          bool
@@ -193,6 +198,29 @@ func (w *FileLogWriter) intRotate() error {
 	return nil
 }
 
+// Delete old log files which were expired.
+func (w *FileLogWriter) deleteOldLog() {
+	if w.maxdays <= 0 {
+		return
+	}
+	dir := filepath.Dir(w.filename)
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) (returnErr error) {
+		defer func() {
+			if r := recover(); r != nil {
+				returnErr = fmt.Errorf("Unable to delete old log '%s', error: %+v", path, r)
+				fmt.Println(returnErr)
+			}
+		}()
+
+		if !info.IsDir() && info.ModTime().Unix() < (time.Now().Unix()-int64(60*60*24*w.maxdays)) {
+			if strings.HasPrefix(filepath.Base(path), filepath.Base(w.filename)) {
+				os.Remove(path)
+			}
+		}
+		return
+	})
+}
+
 // Set the logging format (chainable).  Must be called before the first log
 // message is written.
 func (w *FileLogWriter) SetFormat(format string) *FileLogWriter {
@@ -224,6 +252,12 @@ func (w *FileLogWriter) SetRotateLines(maxlines int) *FileLogWriter {
 func (w *FileLogWriter) SetRotateSize(maxsize int) *FileLogWriter {
 	//fmt.Fprintf(os.Stderr, "FileLogWriter.SetRotateSize: %v\n", maxsize)
 	w.maxsize = maxsize
+	return w
+}
+
+// Set max expire days.
+func (w *FileLogWriter) SetMaxDays(maxdays int) *FileLogWriter {
+	w.maxdays = maxdays
 	return w
 }
 
