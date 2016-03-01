@@ -95,6 +95,9 @@ var (
 	// LogBufferLength specifies how many log messages a particular log4go
 	// logger can buffer at a time before writing them.
 	LogBufferLength = 32
+
+	// Define the function call depth in runtime caller stack.
+	FuncCallDepth = 2
 )
 
 /****** LogRecord ******/
@@ -196,7 +199,7 @@ func (log Logger) intLogf(lvl Level, format string, args ...interface{}) {
 	}
 
 	// Determine caller func
-	pc, _, lineno, ok := runtime.Caller(2)
+	pc, _, lineno, ok := runtime.Caller(FuncCallDepth)
 	src := ""
 	if ok {
 		src = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), lineno)
@@ -240,7 +243,7 @@ func (log Logger) intLogc(lvl Level, closure func() string) {
 	}
 
 	// Determine caller func
-	pc, _, lineno, ok := runtime.Caller(2)
+	pc, _, lineno, ok := runtime.Caller(FuncCallDepth)
 	src := ""
 	if ok {
 		src = fmt.Sprintf("%s:%d", runtime.FuncForPC(pc).Name(), lineno)
