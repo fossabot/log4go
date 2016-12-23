@@ -109,6 +109,17 @@ func NewFileLogWriter(fname string, rotate bool) *FileLogWriter {
 					}
 				}
 
+				_, err := os.Stat(w.filename)
+				if nil != err && os.IsNotExist(err) {
+					w.file.Close()
+					fd, err := os.OpenFile(w.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "FileLogWriter(%q): %s\n", w.filename, err)
+						return
+					}
+					w.file = fd
+				}
+
 				// Perform the write
 				n, err := fmt.Fprint(w.file, FormatLogRecord(w.format, rec))
 				if err != nil {
