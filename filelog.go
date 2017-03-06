@@ -157,27 +157,18 @@ func (w *FileLogWriter) intRotate() error {
 			// Find the next available number
 			num := 1
 			fname := ""
+			day := time.Now()
 			if w.daily && time.Now().Day() != w.daily_opendate {
-				yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-
-				for ; err == nil && num <= 999; num++ {
-					fname = w.filename + fmt.Sprintf(".%s.%03d", yesterday, num)
-					_, err = os.Lstat(fname)
-				}
-				// return error if the last file checked still existed
-				if err == nil {
-					return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", w.filename)
-				}
-			} else {
-				num = w.maxbackup - 1
-				for ; num >= 1; num-- {
-					fname = w.filename + fmt.Sprintf(".%d", num)
-					nfname := w.filename + fmt.Sprintf(".%d", num+1)
-					_, err = os.Lstat(fname)
-					if err == nil {
-						os.Rename(fname, nfname)
-					}
-				}
+				day = day.AddDate(0, 0, -1)
+			}
+			daystr := day.Format("2006-01-02")
+			for ; err == nil && num <= w.maxbackup; num++ {
+				fname = w.filename + fmt.Sprintf(".%s.%03d", daystr, num)
+				_, err = os.Lstat(fname)
+			}
+			// return error if the last file checked still existed
+			if err == nil {
+				return fmt.Errorf("Rotate: Cannot find free log number to rename %s\n", w.filename)
 			}
 
 			w.file.Close()
