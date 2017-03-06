@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	FORMAT_DEFAULT = "[%D %T] [%L] (%S) %M"
-	FORMAT_SHORT   = "[%t %d] [%L] %M"
-	FORMAT_ABBREV  = "[%L] %M"
+	FormatDefault = "[%D %T] [%L] (%S) %M"
+	FormatShort   = "[%t %d] [%L] %M"
+	FormatAbbrev  = "[%L] %M"
+	FormatGoID    = "[%D %T][%L][%I](%S) %M"
 )
 
 type formatCacheType struct {
@@ -46,15 +47,12 @@ func FormatLogRecord(format string, rec *LogRecord) string {
 
 	cache := *formatCache
 	if cache.LastUpdateSeconds != secs {
-		month, day, year := rec.Created.Month(), rec.Created.Day(), rec.Created.Year()
-		hour, minute, second := rec.Created.Hour(), rec.Created.Minute(), rec.Created.Second()
-		zone, _ := rec.Created.Zone()
 		updated := &formatCacheType{
 			LastUpdateSeconds: secs,
-			shortTime:         fmt.Sprintf("%02d:%02d", hour, minute),
-			shortDate:         fmt.Sprintf("%02d/%02d/%02d", day, month, year%100),
-			longTime:          fmt.Sprintf("%02d:%02d:%02d %s", hour, minute, second, zone),
-			longDate:          fmt.Sprintf("%04d/%02d/%02d", year, month, day),
+			shortTime:         rec.Created.Format("15:04"),
+			shortDate:         rec.Created.Format("02/01/06"),
+			longTime:          rec.Created.Format("2006-01-02 15:04:05.000 -07:00"),
+			longDate:          rec.Created.Format("2006/01/02"),
 		}
 		cache = *updated
 		formatCache = updated
@@ -77,6 +75,8 @@ func FormatLogRecord(format string, rec *LogRecord) string {
 				out.WriteString(cache.shortDate)
 			case 'L':
 				out.WriteString(levelStrings[rec.Level])
+			case 'I':
+				out.WriteString(rec.Routine)
 			case 'S':
 				out.WriteString(rec.Source)
 			case 's':

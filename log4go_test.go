@@ -28,7 +28,6 @@ func newLogRecord(lvl Level, src string, msg string) *LogRecord {
 }
 
 func TestELog(t *testing.T) {
-	fmt.Printf("Testing %s\n", L4G_VERSION)
 	lr := newLogRecord(CRITICAL, "source", "message")
 	if lr.Level != CRITICAL {
 		t.Errorf("Incorrect level: %d should be %d", lr.Level, CRITICAL)
@@ -56,9 +55,9 @@ var formatTests = []struct {
 		},
 		Formats: map[string]string{
 			// TODO(kevlar): How can I do this so it'll work outside of PST?
-			FORMAT_DEFAULT: "[2009/02/13 23:31:30 UTC] [EROR] (source) message\n",
-			FORMAT_SHORT:   "[23:31 13/02/09] [EROR] message\n",
-			FORMAT_ABBREV:  "[EROR] message\n",
+			FormatDefault: "[2009/02/13 23:31:30 UTC] [EROR] (source) message\n",
+			FormatShort:   "[23:31 13/02/09] [EROR] message\n",
+			FormatAbbrev:  "[EROR] message\n",
 		},
 	},
 }
@@ -66,9 +65,9 @@ var formatTests = []struct {
 func TestFormatLogRecord(t *testing.T) {
 	for _, test := range formatTests {
 		name := test.Test
-		for fmt, want := range test.Formats {
-			if got := FormatLogRecord(fmt, test.Record); got != want {
-				t.Errorf("%s - %s:", name, fmt)
+		for layout, want := range test.Formats {
+			if got := FormatLogRecord(layout, test.Record); got != want {
+				t.Errorf("%s - %s:", name, layout)
 				t.Errorf("   got %q", got)
 				t.Errorf("  want %q", want)
 			}
@@ -94,7 +93,7 @@ var logRecordWriteTests = []struct {
 }
 
 func TestConsoleLogWriter(t *testing.T) {
-	console := make(ConsoleLogWriter)
+	console := &ConsoleLogWriter{}
 
 	r, w := io.Pipe()
 	go console.run(w)
@@ -123,7 +122,7 @@ func TestFileLogWriter(t *testing.T) {
 
 	w := NewFileLogWriter(testLogFile, false)
 	if w == nil {
-		t.Fatalf("Invalid return: w should not be nil")
+		t.Fatal("Invalid return: w should not be nil")
 	}
 	defer os.Remove(testLogFile)
 
@@ -146,7 +145,7 @@ func TestXMLLogWriter(t *testing.T) {
 
 	w := NewXMLLogWriter(testLogFile, false)
 	if w == nil {
-		t.Fatalf("Invalid return: w should not be nil")
+		t.Fatal("Invalid return: w should not be nil")
 	}
 	defer os.Remove(testLogFile)
 
@@ -164,29 +163,29 @@ func TestXMLLogWriter(t *testing.T) {
 func TestLogger(t *testing.T) {
 	sl := NewDefaultLogger(WARNING)
 	if sl == nil {
-		t.Fatalf("NewDefaultLogger should never return nil")
+		t.Fatal("NewDefaultLogger should never return nil")
 	}
 	if lw, exist := sl["stdout"]; lw == nil || exist != true {
-		t.Fatalf("NewDefaultLogger produced invalid logger (DNE or nil)")
+		t.Fatal("NewDefaultLogger produced invalid logger (DNE or nil)")
 	}
 	if sl["stdout"].Level != WARNING {
-		t.Fatalf("NewDefaultLogger produced invalid logger (incorrect level)")
+		t.Fatal("NewDefaultLogger produced invalid logger (incorrect level)")
 	}
 	if len(sl) != 1 {
-		t.Fatalf("NewDefaultLogger produced invalid logger (incorrect map count)")
+		t.Fatal("NewDefaultLogger produced invalid logger (incorrect map count)")
 	}
 
 	//func (l *Logger) AddFilter(name string, level int, writer LogWriter) {}
 	l := make(Logger)
 	l.AddFilter("stdout", DEBUG, NewConsoleLogWriter())
 	if lw, exist := l["stdout"]; lw == nil || exist != true {
-		t.Fatalf("AddFilter produced invalid logger (DNE or nil)")
+		t.Fatal("AddFilter produced invalid logger (DNE or nil)")
 	}
 	if l["stdout"].Level != DEBUG {
-		t.Fatalf("AddFilter produced invalid logger (incorrect level)")
+		t.Fatal("AddFilter produced invalid logger (incorrect level)")
 	}
 	if len(l) != 1 {
-		t.Fatalf("AddFilter produced invalid logger (incorrect map count)")
+		t.Fatal("AddFilter produced invalid logger (incorrect map count)")
 	}
 
 	//func (l *Logger) Warn(format string, args ...interface{}) error {}
@@ -373,17 +372,17 @@ func TestXMLConfig(t *testing.T) {
 
 	// Make sure they're the right keys
 	if _, ok := log["stdout"]; !ok {
-		t.Errorf("XMLConfig: Expected stdout logger")
+		t.Error("XMLConfig: Expected stdout logger")
 	}
 	if _, ok := log["file"]; !ok {
-		t.Fatalf("XMLConfig: Expected file logger")
+		t.Fatal("XMLConfig: Expected file logger")
 	}
 	if _, ok := log["xmllog"]; !ok {
-		t.Fatalf("XMLConfig: Expected xmllog logger")
+		t.Fatal("XMLConfig: Expected xmllog logger")
 	}
 
 	// Make sure they're the right type
-	if _, ok := log["stdout"].LogWriter.(ConsoleLogWriter); !ok {
+	if _, ok := log["stdout"].LogWriter.(*ConsoleLogWriter); !ok {
 		t.Fatalf("XMLConfig: Expected stdout to be ConsoleLogWriter, found %T", log["stdout"].LogWriter)
 	}
 	if _, ok := log["file"].LogWriter.(*FileLogWriter); !ok {
@@ -429,9 +428,9 @@ func BenchmarkFormatLogRecord(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rec.Created = rec.Created.Add(1 * time.Second / updateEvery)
 		if i%2 == 0 {
-			FormatLogRecord(FORMAT_DEFAULT, rec)
+			FormatLogRecord(FormatDefault, rec)
 		} else {
-			FormatLogRecord(FORMAT_SHORT, rec)
+			FormatLogRecord(FormatShort, rec)
 		}
 	}
 }

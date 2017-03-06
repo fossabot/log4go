@@ -46,20 +46,12 @@
 package log4go
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"time"
-)
-
-// Version information
-const (
-	L4G_VERSION = "log4go-v3.0.1"
-	L4G_MAJOR   = 3
-	L4G_MINOR   = 0
-	L4G_BUILD   = 1
 )
 
 /****** Constants ******/
@@ -98,6 +90,12 @@ var (
 
 	// Define the function call depth in runtime caller stack.
 	FuncCallDepth = 2
+
+	// Enable record the go routine ID
+	EnableGoRoutineID bool
+
+	// The routine prefix string in runtime stack
+	routinePrefix = []byte("goroutine ")
 )
 
 /****** LogRecord ******/
@@ -106,6 +104,7 @@ var (
 type LogRecord struct {
 	Level   Level     // The log level
 	Created time.Time // The time at which the log message was created (nanoseconds)
+	Routine string    // The go routine ID in runtime stack
 	Source  string    // The message source
 	Message string    // The log message
 }
@@ -135,31 +134,20 @@ type Filter struct {
 // written.
 type Logger map[string]*Filter
 
-// Create a new logger.
-//
-// DEPRECATED: Use make(Logger) instead.
-func NewLogger() Logger {
-	os.Stderr.WriteString("warning: use of deprecated NewLogger\n")
-	return make(Logger)
-}
-
-// Create a new logger with a "stdout" filter configured to send log messages at
-// or above lvl to standard output.
-//
-// DEPRECATED: use NewDefaultLogger instead.
-func NewConsoleLogger(lvl Level) Logger {
-	os.Stderr.WriteString("warning: use of deprecated NewConsoleLogger\n")
-	return Logger{
-		"stdout": &Filter{lvl, NewConsoleLogWriter()},
-	}
-}
-
 // Create a new logger with a "stdout" filter configured to send log messages at
 // or above lvl to standard output.
 func NewDefaultLogger(lvl Level) Logger {
 	return Logger{
 		"stdout": &Filter{lvl, NewConsoleLogWriter()},
 	}
+}
+
+// Get go routine ID from runtime stack
+func goID() (id string) {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	id = string(bytes.Fields(bytes.TrimPrefix(buf[:n], routinePrefix))[0])
+	return
 }
 
 // Closes all log writers in preparation for exiting the program or a
@@ -218,13 +206,7 @@ func (log Logger) intLogf(lvl Level, format string, args ...interface{}) {
 		Message: msg,
 	}
 
-	// Dispatch the logs
-	for _, filt := range log {
-		if lvl < filt.Level {
-			continue
-		}
-		filt.LogWrite(rec)
-	}
+	log.dispatch(lvl, rec)
 }
 
 // Send a closure log message internally
@@ -257,13 +239,7 @@ func (log Logger) intLogc(lvl Level, closure func() string) {
 		Message: closure(),
 	}
 
-	// Dispatch the logs
-	for _, filt := range log {
-		if lvl < filt.Level {
-			continue
-		}
-		filt.LogWrite(rec)
-	}
+	log.dispatch(lvl, rec)
 }
 
 // Send a log message with manual level, source, and message.
@@ -289,7 +265,14 @@ func (log Logger) Log(lvl Level, source, message string) {
 		Message: message,
 	}
 
-	// Dispatch the logs
+	log.dispatch(lvl, rec)
+}
+
+// Dispatch the logs
+func (log Logger) dispatch(lvl Level, rec *LogRecord) {
+	if EnableGoRoutineID {
+		rec.Routine = fmt.Sprintf("GoID:%05s", goID())
+	}
 	for _, filt := range log {
 		if lvl < filt.Level {
 			continue
